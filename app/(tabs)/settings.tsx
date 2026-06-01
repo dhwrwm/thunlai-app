@@ -119,7 +119,7 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      <Section title="Data">
+      {/* <Section title="Data">
         <Row icon="📖" label="Source" value="bihung.org · CC BY-SA 4.0" />
         <Row icon="🏛️" label="Publisher" value="Bodo Sahitya Sabha" />
         <Row
@@ -132,7 +132,7 @@ export default function SettingsScreen() {
           label="Open bihung.org"
           onPress={() => Linking.openURL("https://bihung.org")}
         />
-      </Section>
+      </Section> */}
 
       <Section title="History">
         <Row
@@ -143,7 +143,7 @@ export default function SettingsScreen() {
         />
       </Section>
 
-      <Section title="About">
+      {/* <Section title="About">
         <Row icon="ℹ️" label="App version" value="1.0.0" />
         <Row
           icon="📜"
@@ -151,7 +151,7 @@ export default function SettingsScreen() {
           value="MIT (code) · CC BY-SA 4.0 (data)"
         />
         <Row icon="🗣️" label="Language" value="Bodo (ISO 639-3: brx)" />
-      </Section>
+      </Section> */}
 
       <Text style={[styles.footer, { color: theme.textTertiary }]}>
         Thunlai — open-source Bodo language app{"\n"}
