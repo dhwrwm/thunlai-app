@@ -1,7 +1,7 @@
-# बिहुं · Bihung Dictionary — React Native App
+# Thunlai — Bodo ↔ English Dictionary
 
-Offline-first Bodo ↔ English dictionary mobile app built with **Expo** + **expo-sqlite**.
-Data sourced directly from [github.com/bihungorg/bihung](https://github.com/bihungorg/bihung)
+Offline-first Bodo ↔ English dictionary for iOS and Android, built with **Expo SDK 52** + **expo-sqlite**.
+Dictionary data sourced from [github.com/bihungorg/bihung](https://github.com/bihungorg/bihung)
 (CC BY-SA 4.0 — © Bodo Sahitya Sabha).
 
 ---
@@ -13,14 +13,33 @@ Data sourced directly from [github.com/bihungorg/bihung](https://github.com/bihu
 - **Instant FTS5 search** — searches Bodo (Devanagari), romanisation, and English simultaneously
 - **Browse A–Z** — tap any Devanagari letter to browse entries alphabetically
 - **Word of the Day** — deterministic daily word, same for all users on a given date
+- **Audio pronunciation** — approved contributor recordings streamed and cached locally
+- **TTS fallback** — expo-speech with `hi-IN` locale when no recording exists
 - **Favourites** — star words, persisted in SQLite
 - **History** — recently viewed words, clearable
+- **Contributor recording** — sign in and record pronunciations for any word
 - **Dark mode** — respects system colour scheme
-- **Share** — share any word as text
 
 ---
 
-## Data Sources
+## Tech stack
+
+| Layer | Technology |
+|---|---|
+| Framework | Expo SDK 52 + Expo Router v4 |
+| Language | TypeScript (strict) |
+| Local database | expo-sqlite v14 (async API) + FTS5 |
+| Audio playback | expo-av |
+| Audio recording | expo-av (Recording API) |
+| TTS fallback | expo-speech (`hi-IN` locale) |
+| Backend / auth | Supabase (Postgres + Storage + Auth) |
+| Session storage | expo-secure-store |
+| List rendering | @shopify/flash-list |
+| Build | EAS Build |
+
+---
+
+## Data sources
 
 | File | Content | Count |
 |------|---------|-------|
@@ -31,13 +50,13 @@ Both files are fetched from GitHub on first launch and stored locally. The app w
 fully offline after that. To re-seed (e.g. after a data update), bump `DATA_VERSION`
 in `src/utils/db.ts`.
 
-**JSON schema used:**
+**JSON schema:**
 
 ```jsonc
-// data.json entries
-{ "w": "बर'",  "r": "bor",   "e": "Bodo people/language", "s": "slug-for-url" }
+// data.json
+{ "w": "बर'", "r": "bor", "e": "Bodo people/language", "s": "slug" }
 
-// data-roman.json entries  
+// data-roman.json
 { "e": "rain", "w": "अखा", "r": "okha" }
 ```
 
@@ -48,30 +67,44 @@ Fields: `w`/`bodo` = Bodo word, `r`/`roman` = romanisation, `e`/`english` = glos
 ## Project structure
 
 ```
-bihung-app/
+thunlai-app/
 ├── app/
-│   ├── _layout.tsx           # Root layout — DB init + seed
+│   ├── _layout.tsx              # Root layout — DB init, seed, Supabase auth
 │   ├── (tabs)/
-│   │   ├── _layout.tsx       # Bottom tab navigator
-│   │   ├── index.tsx         # Home: WOTD, stats, alphabet, history
-│   │   ├── search.tsx        # Search with FTS5
-│   │   ├── favourites.tsx    # Saved words
-│   │   └── settings.tsx      # About + clear history
-│   ├── word/[id].tsx         # Word detail screen
-│   ├── browse/[letter].tsx   # Browse by Devanagari letter
-│   └── history.tsx           # Full history list
+│   │   ├── _layout.tsx          # Bottom tab navigator (4 tabs)
+│   │   ├── index.tsx            # Home: Word of Day, stats, alphabet browser, history
+│   │   ├── search.tsx           # FTS5 search (Bodo / roman / English), filter pills
+│   │   ├── favourites.tsx       # Starred words (SQLite-persisted)
+│   │   └── settings.tsx         # About, attribution, clear history
+│   ├── word/[id].tsx            # Word detail: headword, pronunciation, examples
+│   ├── record/[id].tsx          # Contributor recording screen
+│   ├── browse/[letter].tsx      # Browse all words starting with a Devanagari letter
+│   ├── history.tsx              # Full viewing history
+│   └── auth/sign-in.tsx         # Contributor sign-in / sign-up
 ├── src/
 │   ├── utils/
-│   │   ├── db.ts             # SQLite layer (init, seed, queries)
-│   │   └── theme.ts          # Colors, spacing, dark-mode hook
+│   │   ├── db.ts                # SQLite layer (init, seed, all queries)
+│   │   ├── supabase.ts          # Supabase client + auth helpers + audio URL fetch
+│   │   └── theme.ts             # Colors, spacing, radius, useTheme() hook
 │   ├── components/
-│   │   ├── WordCard.tsx      # Reusable word list card
-│   │   └── SeedScreen.tsx    # First-launch progress screen
+│   │   ├── WordCard.tsx         # Reusable word list card (speak + fav buttons)
+│   │   └── SeedScreen.tsx       # First-launch progress screen
 │   └── hooks/
-│       └── useFavourites.ts  # Favourites state + toggle
+│       ├── useSpeech.ts         # expo-speech wrapper (hi-IN TTS fallback)
+│       ├── useAudio.ts          # expo-av playback + filesystem cache + Supabase fetch
+│       ├── useRecorder.ts       # expo-av recording + Supabase Storage upload
+│       ├── useExamples.ts       # Fetch + cache usage examples from bihung.org
+│       └── useFavourites.ts     # Favourites state + toggle
+├── supabase/
+│   └── migrations/
+│       └── 001_audio_recordings.sql
+├── admin/
+│   └── review-dashboard.html    # Standalone admin UI for approving recordings
+├── assets/
+├── babel.config.js              # Private-class-field transforms (Hermes fix)
+├── metro.config.js              # transformIgnorePatterns for @supabase/* (Hermes fix)
 ├── app.json
-├── package.json
-└── tsconfig.json
+└── package.json
 ```
 
 ---
@@ -81,41 +114,58 @@ bihung-app/
 ### Prerequisites
 
 - **Node 20+**
-- **Expo CLI**: `npm install -g expo-cli`
-- **iOS**: Xcode 15+ with Simulator, OR Expo Go app
-- **Android**: Android Studio with emulator, OR Expo Go app
+- **iOS**: Xcode 15+ with Simulator
+- **Android**: Android Studio with emulator
+
+> **Note:** expo-av, expo-sqlite v14, and expo-secure-store require a **development build** —
+> they do not work in standard Expo Go. Use `eas build --profile development` or `npx expo run:ios`.
 
 ### Install & run
 
 ```bash
 git clone <your-repo>
-cd bihung-app
+cd thunlai-app
 npm install
-npx expo start
 ```
 
-Scan the QR code with **Expo Go** (Android/iOS), or press `i` for iOS simulator / `a` for Android emulator.
+Add your Supabase credentials to `app.json` before running:
+
+```jsonc
+{
+  "expo": {
+    "extra": {
+      "supabaseUrl": "https://YOUR_PROJECT.supabase.co",
+      "supabaseAnonKey": "eyJ..."
+    }
+  }
+}
+```
+
+```bash
+# iOS development build (recommended)
+npx expo run:ios
+
+# Android development build
+npx expo run:android
+
+# Expo Go (limited — audio/recording/secure-store won't work)
+npx expo start --clear
+```
 
 ### First launch
 
 On first launch the app downloads `data.json` + `data-roman.json` from GitHub (~3–5 MB total),
-imports all entries into SQLite in batches, builds an FTS5 search index, then launches.
-This takes 10–30 seconds on a decent connection. After that everything is fully offline.
+imports all entries into SQLite in batched transactions, builds an FTS5 search index, then
+launches. This takes 10–30 seconds on a decent connection. After that everything is fully offline.
 
-### Build for production
+### Production build
 
 ```bash
-# Install EAS CLI
 npm install -g eas-cli
 eas login
-
-# Configure (first time)
 eas build:configure
 
-# Build APK for Android
-eas build --platform android --profile preview
-
-# Build for iOS
+eas build --platform android
 eas build --platform ios
 ```
 
@@ -123,68 +173,71 @@ eas build --platform ios
 
 ## Architecture
 
-### Database (`src/utils/db.ts`)
+### Local database (`src/utils/db.ts`)
 
-SQLite via `expo-sqlite` v14 (async API). Tables:
+SQLite via expo-sqlite v14 (async API only). Tables:
 
 ```sql
-words       (id, bodo, roman, english, source, slug)
+words       (id, bodo, roman, english, source, slug, examples)
 favourites  (word_id, added_at)
 history     (word_id, viewed_at)
-meta        (key, value)
+meta        (key, value)          -- stores data_version
+audio_cache (word_id, local_path, cached_at, valid)
 
-words_fts   VIRTUAL TABLE USING fts5(bodo, roman, english, content='words')
+words_fts   VIRTUAL TABLE USING fts5(
+              bodo, roman, english,
+              content='words', tokenize='unicode61'
+            )
 ```
 
-FTS5 with `unicode61` tokenizer handles Devanagari script correctly.
-Prefix search: query terms get `*` appended so "अख" matches "अखार", "अखन्दा", etc.
+### Supabase schema (remote)
+
+```sql
+contributors  (id, display_name, email, bio, approved, ...)
+recordings    (id, word_id, contributor_id, storage_path, duration_ms, status, ...)
+words_audio   VIEW — approved recordings with public CDN audio_url
+```
+
+`recordings.status` enum: `pending | approved | rejected`.
+Storage bucket: `audio` (public, 5 MB limit, accepts audio/m4a, audio/mpeg, audio/wav).
+
+### Audio pipeline
+
+```
+Contributor records M4A → uploads to Supabase Storage
+    → inserts recordings row (status: pending)
+    → admin approves via review-dashboard.html
+    → status = approved
+
+Mobile app (useAudio hook):
+    1. Check audio_cache → play local file if valid
+    2. Fetch audio_url from words_audio Supabase view
+    3. Download M4A to FileSystem.documentDirectory/audio/word_<id>.m4a
+    4. Cache path in audio_cache
+    5. Play via expo-av
+    6. Fallback: expo-speech hi-IN if no approved recording
+```
+
+### Search
+
+`searchWords()` runs an FTS5 MATCH query with `*` suffix for prefix matching.
+On parse error (e.g. special characters) it falls back to a LIKE query on all three columns.
 
 ### Offline strategy
 
 1. On first launch, `isSeeded()` checks the `meta` table for `data_version`.
 2. If not seeded, `seedDatabase()` fetches both JSON files and bulk-inserts in 500-row transactions.
 3. After seeding, `data_version` is written — subsequent launches skip seeding entirely.
-4. To force a re-seed (e.g. after upstream data updates), increment `DATA_VERSION` in `db.ts`.
-
-### Search
-
-`searchWords()` runs an FTS5 MATCH query. On parse error (e.g. special characters), it
-falls back to a LIKE query on all three columns. Results are ordered by FTS5 rank (relevance).
+4. To force a re-seed, increment `DATA_VERSION` in `src/utils/db.ts`.
 
 ---
 
-## Customisation
+## Known issues & constraints
 
-### Add Devanagari font
-
-The app uses the system font by default. For better Devanagari rendering:
-
-```bash
-npx expo install @expo-google-fonts/noto-sans-devanagari
-```
-
-Then in `app/_layout.tsx`:
-```typescript
-import { useFonts, NotoSansDevanagari_400Regular } from '@expo-google-fonts/noto-sans-devanagari';
-const [fontsLoaded] = useFonts({ NotoSansDevanagari_400Regular });
-```
-
-### Add audio pronunciation
-
-```bash
-npx expo install expo-speech
-```
-
-In `WordCard.tsx`:
-```typescript
-import * as Speech from 'expo-speech';
-Speech.speak(word.bodo, { language: 'hi-IN' }); // closest available to Bodo
-```
-
-### Re-seed from updated data
-
-1. Bump `DATA_VERSION` constant in `src/utils/db.ts`
-2. Rebuild and release — users will re-download and re-index on next launch
+- **Hermes + private class fields**: `@supabase/supabase-js` uses `#privateField` syntax, which Hermes doesn't support natively. Fixed via `babel.config.js` transforms and `metro.config.js` `transformIgnorePatterns`. Do not remove these.
+- **Bodo TTS**: ISO 639-3 code is `brx`. No native TTS voice exists on iOS/Android. `hi-IN` (Hindi) is used as the closest Devanagari-script approximation.
+- **Devanagari rendering on Android**: `lineHeight` must be at least `1.4 × fontSize` to avoid clipping.
+- **Development build required**: expo-av, expo-sqlite v14, and expo-secure-store do not work in standard Expo Go.
 
 ---
 
@@ -193,4 +246,4 @@ Speech.speak(word.bodo, { language: 'hi-IN' }); // closest available to Bodo
 - **App code**: MIT
 - **Dictionary data**: CC BY-SA 4.0 — © Bodo Sahitya Sabha / bihung.org
 
-Please link back to https://bihung.org when redistributing.
+Please attribute and link back to https://bihung.org when redistributing.
