@@ -23,8 +23,8 @@ const ACTIVITIES = [
     emoji: '🧠',
     title: 'Vocabulary Quiz',
     description: 'Test your Bodo–English vocabulary knowledge',
-    route: null,
-    available: false,
+    route: '/learn/quiz' as const,
+    available: true,
   },
   {
     id: 'flashcards',
