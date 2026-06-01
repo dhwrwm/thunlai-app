@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "Thunlai",
+    "slug": "thunlai",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "scheme": "thunlai",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#1D9E75"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "org.thunlai.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1D9E75"
+      },
+      "package": "org.thunlai.app"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      [
+        "expo-sqlite",
+        {
+          "enableFTS": true
+        }
+      ],
+      "expo-asset"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
