@@ -62,6 +62,7 @@ export default function RootLayout() {
         <Stack.Screen name="word/[id]" options={{ presentation: 'card' }} />
         <Stack.Screen name="browse/[letter]" options={{ presentation: 'card' }} />
         <Stack.Screen name="history" options={{ presentation: 'card' }} />
+        <Stack.Screen name="learn/trace" options={{ title: 'Trace Letters', presentation: 'card' }} />
       </Stack>
     </>
   );

@@ -39,6 +39,14 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="learn"
+        options={{
+          title: 'Learn',
+          headerTitle: 'Learning Hub',
+          tabBarIcon: ({ color }) => <TabIcon emoji="📚" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="favourites"
         options={{
           title: 'Saved',

@@ -1,5 +1,3 @@
-import { useColorScheme } from 'react-native';
-
 export const COLORS = {
   // Brand
   primary: '#1D9E75',
@@ -66,7 +64,5 @@ export const RADIUS = {
 };
 
 export function useTheme() {
-  const scheme = useColorScheme() ?? 'light';
-  const theme = scheme === 'dark' ? COLORS.dark : COLORS.light;
-  return { theme, isDark: scheme === 'dark', scheme };
+  return { theme: COLORS.light, isDark: false, scheme: 'light' as const };
 }
