@@ -1,0 +1,9 @@
+{
+  "name": "@thunlai/config",
+  "version": "0.0.1",
+  "private": true,
+  "exports": {
+    "./typescript/*": "./typescript/*",
+    "./eslint/*": "./eslint/*"
+  }
+}

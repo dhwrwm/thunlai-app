@@ -5,8 +5,15 @@
 expo-env.d.ts
 # @end expo-cli
 
+# Turbo
+.turbo
+
+# Next.js
+.next
+
 # Dependencies
 node_modules/
+.pnpm-store
 
 # Expo
 .expo/

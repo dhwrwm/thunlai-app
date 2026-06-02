@@ -1,6 +1,6 @@
 # Thunlai — Claude Code Assistant
 
-You are an expert React Native / Expo developer working on the **Thunlai** app — an open-source offline-first Bodo ↔ English dictionary for iOS and Android.
+You are an expert full-stack developer working on the **Thunlai** monorepo — an open-source Bodo ↔ English dictionary platform with a mobile app, public web app, admin dashboard, and Supabase backend.
 
 ---
 
@@ -15,39 +15,88 @@ You are an expert React Native / Expo developer working on the **Thunlai** app �
 
 ---
 
+## Monorepo structure
+
+This is a **pnpm + Turborepo** workspace.
+
+| App / Package | Path | Purpose |
+|---|---|---|
+| `@thunlai/mobile` | `apps/mobile/` | Expo SDK 52 React Native app |
+| `@thunlai/web` | `apps/web/` | Next.js 15 public dictionary site |
+| `@thunlai/admin` | `apps/admin/` | Next.js 15 recordings review dashboard |
+| `@thunlai/types` | `packages/types/` | Shared TypeScript types |
+| `@thunlai/config` | `packages/config/` | Shared tsconfig + eslint configs |
+
+```
+pnpm dev              # all apps
+pnpm dev:web          # web only  (port 3000)
+pnpm dev:admin        # admin only (port 3001)
+pnpm dev:mobile       # Expo start
+```
+
 ## Tech stack
 
 | Layer | Technology |
 |---|---|
-| Framework | Expo SDK 52 + Expo Router v4 (file-based routing) |
-| Language | TypeScript (strict) |
-| Local database | expo-sqlite v14 (async API) + FTS5 full-text search |
-| Audio playback | expo-av |
-| Audio recording | expo-av (Recording API) |
-| TTS fallback | expo-speech (hi-IN locale — closest to Bodo BRX) |
-| Backend / auth | Supabase (Postgres + Storage + Auth) |
-| Session storage | expo-secure-store |
-| List rendering | @shopify/flash-list |
-| Navigation | Expo Router (tabs + stack) |
-| Build | EAS Build |
+| Monorepo | Turborepo + pnpm workspaces |
+| Mobile | Expo SDK 52 + Expo Router v4 |
+| Web / Admin | Next.js 15 App Router + Tailwind CSS v3 |
+| Language | TypeScript (strict) everywhere |
+| Local database (mobile) | expo-sqlite v14 (async API) + FTS5 full-text search |
+| Remote database | Supabase Postgres + RLS + FTS (tsvector) |
+| Edge functions | Deno (Supabase Edge Functions) |
+| Auth | Supabase Auth + @supabase/ssr |
+| Storage | Supabase Storage (audio bucket) |
+| Audio playback | expo-av (mobile) |
+| TTS fallback | expo-speech hi-IN (mobile) |
+| List rendering | @shopify/flash-list (mobile) |
+| Build (mobile) | EAS Build |
 
 ---
 
 ## Repository layout
 
 ```
-bihung-app/
-├── app/
-│   ├── _layout.tsx              # Root layout — DB init, seed, Supabase auth
-│   ├── (tabs)/
-│   │   ├── _layout.tsx          # Bottom tab navigator (4 tabs)
-│   │   ├── index.tsx            # Home: Word of Day, stats, alphabet browser, history
-│   │   ├── search.tsx           # FTS5 search (Bodo / roman / English), filter pills
-│   │   ├── favourites.tsx       # Starred words (SQLite-persisted)
-│   │   └── settings.tsx         # About, attribution, clear history
-│   ├── word/[id].tsx            # Word detail: headword, pronunciation, examples
-│   ├── record/[id].tsx          # Contributor recording screen
-│   ├── browse/[letter].tsx      # Browse all words starting with a Devanagari letter
+thunlai-app/
+├── apps/
+│   ├── mobile/                  # @thunlai/mobile — Expo React Native
+│   │   ├── app/
+│   │   │   ├── _layout.tsx      # Root layout — DB init, seed, Supabase auth
+│   │   │   ├── (tabs)/          # Home, Search, Favourites, Settings, Learn
+│   │   │   ├── word/[id].tsx    # Word detail + similar words
+│   │   │   └── browse/[letter].tsx
+│   │   ├── src/utils/db.ts      # SQLite layer (init, seed, all queries)
+│   │   └── src/components/      # WordCard, SeedScreen
+│   ├── web/                     # @thunlai/web — Next.js public site (port 3000)
+│   │   └── src/app/
+│   │       ├── page.tsx         # Homepage: search + word of day + alphabet
+│   │       ├── word/[id]/       # Word detail page (SSR)
+│   │       ├── browse/[letter]/ # Browse by Devanagari letter (SSR)
+│   │       └── api/search/      # Search API route
+│   └── admin/                   # @thunlai/admin — Next.js dashboard (port 3001)
+│       └── src/app/
+│           ├── page.tsx         # Stats dashboard
+│           ├── recordings/      # List + review individual recordings
+│           ├── contributors/    # Contributors table
+│           └── login/           # Supabase auth sign-in
+├── packages/
+│   ├── types/src/index.ts       # Shared: Word, Recording, Contributor types
+│   └── config/typescript/       # Shared tsconfig bases
+├── supabase/
+│   ├── migrations/
+│   │   ├── 001_audio_recordings.sql   # contributors, recordings, words_audio view
+│   │   └── 002_words_table.sql        # words table + FTS tsvector index
+│   └── functions/
+│       ├── search/index.ts      # Deno: FTS search with ILIKE fallback
+│       └── word/index.ts        # Deno: get word + audio by ID
+├── turbo.json
+├── pnpm-workspace.yaml
+└── package.json                 # Workspace root (pnpm)
+```
+
+## Old layout (pre-monorepo, removed)
+```
+├── app/                         # ← now at apps/mobile/app/
 │   ├── history.tsx              # Full viewing history
 │   └── auth/sign-in.tsx         # Contributor sign-in / sign-up
 ├── src/
