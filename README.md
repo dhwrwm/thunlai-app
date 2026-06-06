@@ -1,23 +1,33 @@
 # Thunlai — Bodo ↔ English Dictionary
 
-Offline-first Bodo ↔ English dictionary for iOS and Android, built with **Expo SDK 52** + **expo-sqlite**.
-Dictionary data sourced from [github.com/bihungorg/bihung](https://github.com/bihungorg/bihung)
-(CC BY-SA 4.0 — © Bodo Sahitya Sabha).
+Open-source Bodo ↔ English dictionary platform with a mobile app, public web app, and admin dashboard.  
+Dictionary data sourced from [github.com/bihungorg/bihung](https://github.com/bihungorg/bihung) (CC BY-SA 4.0 — © Bodo Sahitya Sabha).
+
+---
+
+## Apps
+
+| App | Path | URL |
+|---|---|---|
+| Mobile (iOS + Android) | `apps/mobile/` | — |
+| Public web | `apps/web/` | https://bihung.org |
+| Admin dashboard | `apps/admin/` | — |
 
 ---
 
 ## Features
 
 - **31,000+ words** — ~10K Bodo→English dictionary + ~21K English→Bodo glossary
-- **Fully offline** after first launch — all data stored in on-device SQLite
-- **Instant FTS5 search** — searches Bodo (Devanagari), romanisation, and English simultaneously
-- **Browse A–Z** — tap any Devanagari letter to browse entries alphabetically
-- **Word of the Day** — deterministic daily word, same for all users on a given date
-- **Audio pronunciation** — approved contributor recordings streamed and cached locally
-- **TTS fallback** — expo-speech with `hi-IN` locale when no recording exists
-- **Favourites** — star words, persisted in SQLite
-- **History** — recently viewed words, clearable
+- **Offline-first mobile app** — SQLite on-device after first sync
+- **Instant search** — FTS5 (mobile) and Postgres full-text (web) across Bodo, romanisation, and English
+- **Transliteration** — Roman → Devanagari via on-device ONNX seq2seq model (`@thunlai/translit`)
+- **Browse A–Z** — tap any Devanagari letter to list entries alphabetically
+- **Word of the Day** — deterministic daily word
+- **Audio pronunciation** — contributor recordings streamed and cached locally
+- **TTS fallback** — `expo-speech` with `hi-IN` locale when no recording exists
+- **Favourites & history** — persisted in SQLite (mobile)
 - **Contributor recording** — sign in and record pronunciations for any word
+- **Admin review** — approve / reject pending recordings in the dashboard
 - **Dark mode** — respects system colour scheme
 
 ---
@@ -26,84 +36,75 @@ Dictionary data sourced from [github.com/bihungorg/bihung](https://github.com/bi
 
 | Layer | Technology |
 |---|---|
-| Framework | Expo SDK 52 + Expo Router v4 |
-| Language | TypeScript (strict) |
-| Local database | expo-sqlite v14 (async API) + FTS5 |
-| Audio playback | expo-av |
-| Audio recording | expo-av (Recording API) |
-| TTS fallback | expo-speech (`hi-IN` locale) |
-| Backend / auth | Supabase (Postgres + Storage + Auth) |
-| Session storage | expo-secure-store |
-| List rendering | @shopify/flash-list |
+| Monorepo | Turborepo + pnpm workspaces |
+| Mobile | Expo SDK 54 + Expo Router v6 |
+| Web / Admin | Next.js 15 App Router + Tailwind CSS v3 |
+| Language | TypeScript (strict) everywhere |
+| Mobile DB | expo-sqlite v14 (async) + FTS5 full-text search |
+| Remote DB | Neon (Postgres) via `@neondatabase/serverless` |
+| ORM | Drizzle ORM + drizzle-kit |
+| Auth + Storage | Supabase Auth + Supabase Storage (audio bucket) |
+| Transliteration | ONNX seq2seq (Core ML / NNAPI / WASM) — `@thunlai/translit` |
+| Audio playback | expo-av (mobile) |
+| TTS fallback | expo-speech `hi-IN` (mobile) |
+| List rendering | @shopify/flash-list (mobile) |
 | Build | EAS Build |
 
 ---
 
-## Data sources
-
-| File | Content | Count |
-|------|---------|-------|
-| `data.json` | Bodo→English dictionary | ~10K entries |
-| `data-roman.json` | English→Bodo glossary | ~21K entries |
-
-Both files are fetched from GitHub on first launch and stored locally. The app works
-fully offline after that. To re-seed (e.g. after a data update), bump `DATA_VERSION`
-in `src/utils/db.ts`.
-
-**JSON schema:**
-
-```jsonc
-// data.json
-{ "w": "बर'", "r": "bor", "e": "Bodo people/language", "s": "slug" }
-
-// data-roman.json
-{ "e": "rain", "w": "अखा", "r": "okha" }
-```
-
-Fields: `w`/`bodo` = Bodo word, `r`/`roman` = romanisation, `e`/`english` = gloss, `s` = URL slug.
-
----
-
-## Project structure
+## Monorepo structure
 
 ```
 thunlai-app/
-├── app/
-│   ├── _layout.tsx              # Root layout — DB init, seed, Supabase auth
-│   ├── (tabs)/
-│   │   ├── _layout.tsx          # Bottom tab navigator (4 tabs)
-│   │   ├── index.tsx            # Home: Word of Day, stats, alphabet browser, history
-│   │   ├── search.tsx           # FTS5 search (Bodo / roman / English), filter pills
-│   │   ├── favourites.tsx       # Starred words (SQLite-persisted)
-│   │   └── settings.tsx         # About, attribution, clear history
-│   ├── word/[id].tsx            # Word detail: headword, pronunciation, examples
-│   ├── record/[id].tsx          # Contributor recording screen
-│   ├── browse/[letter].tsx      # Browse all words starting with a Devanagari letter
-│   ├── history.tsx              # Full viewing history
-│   └── auth/sign-in.tsx         # Contributor sign-in / sign-up
-├── src/
-│   ├── utils/
-│   │   ├── db.ts                # SQLite layer (init, seed, all queries)
-│   │   ├── supabase.ts          # Supabase client + auth helpers + audio URL fetch
-│   │   └── theme.ts             # Colors, spacing, radius, useTheme() hook
-│   ├── components/
-│   │   ├── WordCard.tsx         # Reusable word list card (speak + fav buttons)
-│   │   └── SeedScreen.tsx       # First-launch progress screen
-│   └── hooks/
-│       ├── useSpeech.ts         # expo-speech wrapper (hi-IN TTS fallback)
-│       ├── useAudio.ts          # expo-av playback + filesystem cache + Supabase fetch
-│       ├── useRecorder.ts       # expo-av recording + Supabase Storage upload
-│       ├── useExamples.ts       # Fetch + cache usage examples from bihung.org
-│       └── useFavourites.ts     # Favourites state + toggle
+├── apps/
+│   ├── mobile/                  # @thunlai/mobile — Expo SDK 54
+│   │   ├── app/
+│   │   │   ├── _layout.tsx      # Root layout — DB init, seed, auth
+│   │   │   ├── (tabs)/          # Home, Search, Favourites, Settings, Learn
+│   │   │   ├── word/[id].tsx    # Word detail + similar words
+│   │   │   └── browse/[letter].tsx
+│   │   └── src/
+│   │       ├── utils/db.ts      # SQLite layer (init, seed, all queries)
+│   │       └── components/      # WordCard, SeedScreen
+│   ├── web/                     # @thunlai/web — Next.js 15 (port 3000)
+│   │   └── src/app/
+│   │       ├── page.tsx         # Homepage: search + word of day + alphabet
+│   │       ├── word/[id]/       # Word detail page (SSR)
+│   │       ├── browse/[letter]/ # Browse by Devanagari letter (SSR)
+│   │       └── api/search/      # Search API route (Drizzle + Neon)
+│   └── admin/                   # @thunlai/admin — Next.js 15 (port 3001)
+│       └── src/app/
+│           ├── page.tsx         # Stats dashboard
+│           ├── recordings/      # List + review individual recordings
+│           ├── contributors/    # Contributors table
+│           └── login/           # Supabase auth sign-in
+├── packages/
+│   ├── db/                      # @thunlai/db — Drizzle schema + Neon client
+│   │   ├── src/schema.ts        # words, contributors, recordings tables
+│   │   ├── src/index.ts         # exports db, schema
+│   │   ├── scripts/seed-neon.ts # seed script (pnpm db:seed)
+│   │   └── drizzle.config.ts
+│   ├── translit/                # @thunlai/translit — Roman→Devanagari ONNX model
+│   │   ├── assets/model.onnx    # 2.4 MB seq2seq transformer
+│   │   ├── assets/tokenizer.json
+│   │   └── src/
+│   │       ├── beam.ts          # runtime-agnostic beam search
+│   │       ├── translit.native.ts  # onnxruntime-react-native
+│   │       ├── translit.web.ts     # onnxruntime-web (WASM)
+│   │       ├── translit.server.ts  # onnxruntime-node (Vercel/Edge)
+│   │       └── useTranslit.ts   # React hook (RN + web)
+│   ├── types/src/index.ts       # Shared TypeScript types (Word, Recording, …)
+│   └── config/                  # Shared tsconfig + eslint bases
 ├── supabase/
-│   └── migrations/
-│       └── 001_audio_recordings.sql
-├── admin/
-│   └── review-dashboard.html    # Standalone admin UI for approving recordings
-├── assets/
-├── babel.config.js              # Private-class-field transforms (Hermes fix)
-├── metro.config.js              # transformIgnorePatterns for @supabase/* (Hermes fix)
-├── app.json
+│   ├── migrations/
+│   │   ├── 001_audio_recordings.sql
+│   │   └── 002_words_table.sql
+│   └── functions/
+│       ├── search/index.ts      # Deno edge function: FTS search
+│       └── word/index.ts        # Deno edge function: word + audio by ID
+├── .env.example                 # Shared env template (copy to .env)
+├── turbo.json
+├── pnpm-workspace.yaml
 └── package.json
 ```
 
@@ -113,69 +114,88 @@ thunlai-app/
 
 ### Prerequisites
 
-- **Node 20+**
+- **Node 22+** and **pnpm 10+**
 - **iOS**: Xcode 15+ with Simulator
 - **Android**: Android Studio with emulator
 
-> **Note:** expo-av, expo-sqlite v14, and expo-secure-store require a **development build** —
+> `expo-av`, `expo-sqlite v14`, and `expo-secure-store` require a **development build** —
 > they do not work in standard Expo Go. Use `eas build --profile development` or `npx expo run:ios`.
 
-### Install & run
+### Install
 
 ```bash
 git clone <your-repo>
 cd thunlai-app
-npm install
+pnpm install
 ```
 
-Add your Supabase credentials to `app.json` before running:
+### Environment
 
-```jsonc
-{
-  "expo": {
-    "extra": {
-      "supabaseUrl": "https://YOUR_PROJECT.supabase.co",
-      "supabaseAnonKey": "eyJ..."
-    }
-  }
-}
-```
+Copy `.env.example` to `.env` and fill in your credentials:
 
 ```bash
-# iOS development build (recommended)
-npx expo run:ios
-
-# Android development build
-npx expo run:android
-
-# Expo Go (limited — audio/recording/secure-store won't work)
-npx expo start --clear
+cp .env.example .env
 ```
 
-### First launch
+```env
+# Neon — shared across all apps and scripts
+DATABASE_URL=postgresql://user:password@ep-xxx.neon.tech/neondb?sslmode=require
 
-On first launch the app downloads `data.json` + `data-roman.json` from GitHub (~3–5 MB total),
-imports all entries into SQLite in batched transactions, builds an FTS5 search index, then
-launches. This takes 10–30 seconds on a decent connection. After that everything is fully offline.
+# Supabase — auth + audio storage (web + admin)
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+```
 
-### Production build
+The root `.env` is loaded by:
+- `pnpm db:seed` — via Node `--env-file=.env`
+- Turborepo tasks (`dev`, `build`) — injected via `globalEnv`
+- Next.js apps — read from `process.env` at runtime
+
+### Dev servers
 
 ```bash
-npm install -g eas-cli
-eas login
-eas build:configure
+pnpm dev          # all apps in parallel
+pnpm dev:web      # web only  (port 3000)
+pnpm dev:admin    # admin only (port 3001)
+pnpm dev:mobile   # Expo start
+```
 
+### Mobile (development build)
+
+```bash
+cd apps/mobile
+npx expo run:ios      # iOS simulator
+npx expo run:android  # Android emulator
+```
+
+### Database
+
+```bash
+# Push schema to Neon
+pnpm --filter=@thunlai/db db:push
+
+# Seed 31K words from bihung.org
+pnpm db:seed
+
+# Open Drizzle Studio
+pnpm --filter=@thunlai/db db:studio
+```
+
+### Production build (mobile)
+
+```bash
+npm install -g eas-cli && eas login
 eas build --platform android
 eas build --platform ios
 ```
 
 ---
 
-## Architecture
+## Technical specs
 
-### Local database (`src/utils/db.ts`)
+### Mobile database (expo-sqlite v14)
 
-SQLite via expo-sqlite v14 (async API only). Tables:
+On-device SQLite with FTS5 full-text search. All queries are async.
 
 ```sql
 words       (id, bodo, roman, english, source, slug, examples)
@@ -190,54 +210,93 @@ words_fts   VIRTUAL TABLE USING fts5(
             )
 ```
 
-### Supabase schema (remote)
+Search appends `*` for prefix matching and falls back to `LIKE` on FTS parse errors.
 
-```sql
-contributors  (id, display_name, email, bio, approved, ...)
-recordings    (id, word_id, contributor_id, storage_path, duration_ms, status, ...)
-words_audio   VIEW — approved recordings with public CDN audio_url
+### Remote database — Neon (Postgres + Drizzle)
+
+Shared across web and admin apps via `@thunlai/db`.
+
+```
+words         (id serial PK, bodo, roman, english, source, slug, fts tsvector)
+contributors  (id uuid PK, display_name, email unique, bio, approved, approved_at,
+               approved_by, created_at)
+recordings    (id uuid PK, word_id, word_bodo, word_roman, contributor_id → contributors,
+               storage_path, duration_ms, status recording_status, reviewed_by,
+               reviewed_at, review_note, created_at)
 ```
 
-`recordings.status` enum: `pending | approved | rejected`.
-Storage bucket: `audio` (public, 5 MB limit, accepts audio/m4a, audio/mpeg, audio/wav).
+`recording_status` enum: `pending | approved | rejected`.  
+The `fts` column is a `tsvector` maintained by a Postgres trigger for full-text search on the web.
+
+### Transliteration (`@thunlai/translit`)
+
+Roman → Devanagari using a 2.4 MB ONNX seq2seq transformer from [bihung.org](https://bihung.org).
+
+- **Tokenizer**: 36 input chars (Roman + diacritics), 69 output chars (Devanagari)
+- **Inference**: beam search (width 4) — runtime-agnostic implementation in `beam.ts`
+- **Platform resolution**:
+  - React Native → `translit.native.ts` (onnxruntime-react-native, Core ML / NNAPI)
+  - Web → `translit.web.ts` (onnxruntime-web, WebAssembly)
+  - Server/Edge → `translit.server.ts` (onnxruntime-node)
+
+```typescript
+import { useTranslit, transliterate } from '@thunlai/translit';
+// Same import on RN, web, and server — platform resolved automatically
+```
 
 ### Audio pipeline
 
 ```
-Contributor records M4A → uploads to Supabase Storage
+Contributor → records M4A → uploads to Supabase Storage
     → inserts recordings row (status: pending)
-    → admin approves via review-dashboard.html
-    → status = approved
+    → admin approves in dashboard → status = approved
 
-Mobile app (useAudio hook):
-    1. Check audio_cache → play local file if valid
-    2. Fetch audio_url from words_audio Supabase view
+Mobile playback (useAudio hook):
+    1. Check audio_cache table → play local file if valid
+    2. Fetch audio_url from Supabase words_audio view
     3. Download M4A to FileSystem.documentDirectory/audio/word_<id>.m4a
     4. Cache path in audio_cache
     5. Play via expo-av
-    6. Fallback: expo-speech hi-IN if no approved recording
+    6. Fallback: expo-speech hi-IN
 ```
 
-### Search
+Supabase Storage bucket: `audio` (public, 5 MB limit, audio/m4a + audio/mpeg + audio/wav).
 
-`searchWords()` runs an FTS5 MATCH query with `*` suffix for prefix matching.
-On parse error (e.g. special characters) it falls back to a LIKE query on all three columns.
+### Offline-first strategy (mobile)
 
-### Offline strategy
-
-1. On first launch, `isSeeded()` checks the `meta` table for `data_version`.
-2. If not seeded, `seedDatabase()` fetches both JSON files and bulk-inserts in 500-row transactions.
+1. On launch, `isSeeded()` checks `meta.data_version` in SQLite.
+2. If unseeded, `seedDatabase()` fetches `data.json` from GitHub and bulk-inserts in 500-row transactions.
 3. After seeding, `data_version` is written — subsequent launches skip seeding entirely.
-4. To force a re-seed, increment `DATA_VERSION` in `src/utils/db.ts`.
+4. To force a re-seed after upstream data changes, bump `DATA_VERSION` in `apps/mobile/src/utils/db.ts`.
+
+### Data source
+
+```
+GET https://raw.githubusercontent.com/bihungorg/bihung/main/data.json
+```
+
+```jsonc
+{
+  "words": [
+    // s = "dictionary" → Bodo→English: word is Devanagari, e[] are English meanings
+    { "id": "1", "word": "अ", "b": ["..."], "e": ["the first vowel letter of the Bodo alphabet"], "s": "dictionary" },
+    // other s values → glossary: word is English term, b[] are Bodo translations
+    { "id": "10202", "word": "'A' Group culture", "b": ["'क' थाखो हारिमु"], "e": [], "s": "archeology" }
+  ]
+}
+```
+
+Seed mapping: `dictionary` entries → `bodo = word`, `english = e.join("; ")`; glossary entries → `bodo = b[0]`, `english = word`.
 
 ---
 
 ## Known issues & constraints
 
-- **Hermes + private class fields**: `@supabase/supabase-js` uses `#privateField` syntax, which Hermes doesn't support natively. Fixed via `babel.config.js` transforms and `metro.config.js` `transformIgnorePatterns`. Do not remove these.
-- **Bodo TTS**: ISO 639-3 code is `brx`. No native TTS voice exists on iOS/Android. `hi-IN` (Hindi) is used as the closest Devanagari-script approximation.
-- **Devanagari rendering on Android**: `lineHeight` must be at least `1.4 × fontSize` to avoid clipping.
-- **Development build required**: expo-av, expo-sqlite v14, and expo-secure-store do not work in standard Expo Go.
+- **Hermes + private class fields**: `@supabase/supabase-js` uses `#privateField` syntax. Fixed via `babel.config.js` transforms and `metro.config.js` `transformIgnorePatterns`. Do not remove these.
+- **Bodo TTS**: ISO 639-3 code is `brx`. No native TTS voice on iOS/Android. `hi-IN` (Hindi) is used as the closest Devanagari-script approximation.
+- **Devanagari on Android**: `lineHeight` must be ≥ `1.4 × fontSize` to avoid clipping.
+- **Development build required**: `expo-av`, `expo-sqlite v14`, and `expo-secure-store` do not work in standard Expo Go.
+- **Node 22+** required for `db:seed` (`--experimental-strip-types` + `--env-file` flags).
 
 ---
 
@@ -245,5 +304,6 @@ On parse error (e.g. special characters) it falls back to a LIKE query on all th
 
 - **App code**: MIT
 - **Dictionary data**: CC BY-SA 4.0 — © Bodo Sahitya Sabha / bihung.org
+- **Transliteration model**: Apache 2.0 — bihung.org
 
-Please attribute and link back to https://bihung.org when redistributing.
+Please attribute and link back to https://bihung.org when redistributing the dictionary data.
