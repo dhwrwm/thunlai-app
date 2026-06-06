@@ -12,8 +12,12 @@
   "dependencies": {
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.50.0",
+    "@thunlai/db": "workspace:*",
+    "@thunlai/translit": "workspace:^",
     "@thunlai/types": "workspace:*",
     "next": "^15.3.3",
+    "onnxruntime-node": "^1.26.0",
+    "onnxruntime-web": "^1.26.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },

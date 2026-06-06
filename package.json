@@ -9,7 +9,8 @@
     "dev:mobile": "turbo dev --filter=@thunlai/mobile",
     "lint": "turbo lint",
     "type-check": "turbo type-check",
-    "clean": "turbo clean && rm -rf node_modules"
+    "clean": "turbo clean && rm -rf node_modules",
+    "db:seed": "node --experimental-strip-types --env-file=.env packages/db/scripts/seed-neon.ts"
   },
   "devDependencies": {
     "turbo": "^2.5.4",

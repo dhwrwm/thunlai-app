@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { createClient } from '@/lib/supabase';
+import { db, schema } from '@thunlai/db';
+import { eq, asc, sql } from 'drizzle-orm';
 import WordCard from '@/components/WordCard';
 import type { Word } from '@thunlai/types';
 
@@ -14,16 +15,15 @@ export default async function BrowsePage({ params }: Props) {
   const { letter: raw } = await params;
   const letter = decodeURIComponent(raw);
 
-  const supabase = createClient();
-  const { data } = await supabase
-    .from('words')
-    .select('*')
-    .like('bodo', `${letter}%`)
-    .eq('source', 'dictionary')
-    .order('bodo')
-    .limit(100);
-
-  const words = (data ?? []) as Word[];
+  const words = await db
+    .select()
+    .from(schema.words)
+    .where(
+      sql`${schema.words.bodo} like ${letter + '%'}
+          AND ${schema.words.source} = 'dictionary'`
+    )
+    .orderBy(asc(schema.words.bodo))
+    .limit(100) as Word[];
 
   return (
     <>
@@ -36,11 +36,7 @@ export default async function BrowsePage({ params }: Props) {
       {words.length === 0 ? (
         <p className="text-gray-500">No words found for this letter.</p>
       ) : (
-        <div>
-          {words.map((word) => (
-            <WordCard key={word.id} word={word} />
-          ))}
-        </div>
+        <div>{words.map((word) => <WordCard key={word.id} word={word} />)}</div>
       )}
     </>
   );

@@ -1,16 +1,13 @@
-import { createClient } from '@/lib/supabase/server';
-import type { Contributor } from '@thunlai/types';
+import { db, schema } from '@/lib/db';
+import { desc } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ContributorsPage() {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from('contributors')
-    .select('*')
-    .order('created_at', { ascending: false });
-
-  const contributors = (data ?? []) as Contributor[];
+  const contributors = await db
+    .select()
+    .from(schema.contributors)
+    .orderBy(desc(schema.contributors.created_at));
 
   return (
     <>
@@ -31,16 +28,12 @@ export default async function ContributorsPage() {
                 <td className="px-6 py-4 font-medium text-gray-900">{c.display_name}</td>
                 <td className="px-6 py-4 text-gray-500">{c.email}</td>
                 <td className="px-6 py-4 text-gray-400">
-                  {new Date(c.created_at).toLocaleDateString()}
+                  {c.created_at ? new Date(c.created_at).toLocaleDateString() : '—'}
                 </td>
                 <td className="px-6 py-4">
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                      c.approved
-                        ? 'bg-emerald-50 text-emerald-700'
-                        : 'bg-amber-50 text-amber-700'
-                    }`}
-                  >
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                    c.approved ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                  }`}>
                     {c.approved ? 'Approved' : 'Pending'}
                   </span>
                 </td>

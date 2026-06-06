@@ -1,20 +1,20 @@
-import { createClient } from '@/lib/supabase/server';
+import { db, schema } from '@/lib/db';
+import { eq, sql } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
 async function getStats() {
-  const supabase = await createClient();
-  const [pending, approved, rejected, contributors] = await Promise.all([
-    supabase.from('recordings').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-    supabase.from('recordings').select('id', { count: 'exact', head: true }).eq('status', 'approved'),
-    supabase.from('recordings').select('id', { count: 'exact', head: true }).eq('status', 'rejected'),
-    supabase.from('contributors').select('id', { count: 'exact', head: true }).eq('approved', true),
+  const [pending, approved, rejected, active] = await Promise.all([
+    db.select({ count: sql<number>`cast(count(*) as int)` }).from(schema.recordings).where(eq(schema.recordings.status, 'pending')),
+    db.select({ count: sql<number>`cast(count(*) as int)` }).from(schema.recordings).where(eq(schema.recordings.status, 'approved')),
+    db.select({ count: sql<number>`cast(count(*) as int)` }).from(schema.recordings).where(eq(schema.recordings.status, 'rejected')),
+    db.select({ count: sql<number>`cast(count(*) as int)` }).from(schema.contributors).where(eq(schema.contributors.approved, true)),
   ]);
   return {
-    pending: pending.count ?? 0,
-    approved: approved.count ?? 0,
-    rejected: rejected.count ?? 0,
-    contributors: contributors.count ?? 0,
+    pending: pending[0].count,
+    approved: approved[0].count,
+    rejected: rejected[0].count,
+    contributors: active[0].count,
   };
 }
 
@@ -22,10 +22,10 @@ export default async function DashboardPage() {
   const stats = await getStats();
 
   const cards = [
-    { label: 'Pending Review', value: stats.pending, color: 'bg-amber-50 text-amber-700 border-amber-200', href: '/recordings' },
-    { label: 'Approved', value: stats.approved, color: 'bg-emerald-50 text-emerald-700 border-emerald-200', href: '/recordings?status=approved' },
-    { label: 'Rejected', value: stats.rejected, color: 'bg-red-50 text-red-700 border-red-200', href: '/recordings?status=rejected' },
-    { label: 'Active Contributors', value: stats.contributors, color: 'bg-blue-50 text-blue-700 border-blue-200', href: '/contributors' },
+    { label: 'Pending Review',      value: stats.pending,      color: 'bg-amber-50 text-amber-700 border-amber-200',   href: '/recordings' },
+    { label: 'Approved',            value: stats.approved,     color: 'bg-emerald-50 text-emerald-700 border-emerald-200', href: '/recordings?status=approved' },
+    { label: 'Rejected',            value: stats.rejected,     color: 'bg-red-50 text-red-700 border-red-200',         href: '/recordings?status=rejected' },
+    { label: 'Active Contributors', value: stats.contributors, color: 'bg-blue-50 text-blue-700 border-blue-200',      href: '/contributors' },
   ];
 
   return (

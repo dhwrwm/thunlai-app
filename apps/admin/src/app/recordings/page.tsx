@@ -1,25 +1,48 @@
-import { createClient } from '@/lib/supabase/server';
+import { db, schema } from '@/lib/db';
+import { eq, desc } from 'drizzle-orm';
 import RecordingCard from '@/components/RecordingCard';
-import type { RecordingWithAudio } from '@thunlai/types';
+import type { RecordingWithAudio, RecordingStatus } from '@thunlai/types';
 
 export const dynamic = 'force-dynamic';
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 
 type Props = { searchParams: Promise<{ status?: string }> };
 
 export default async function RecordingsPage({ searchParams }: Props) {
   const { status = 'pending' } = await searchParams;
-  const supabase = await createClient();
+  const tabs = ['pending', 'approved', 'rejected'] as const;
 
-  const { data, error } = await supabase
-    .from('recordings')
-    .select(`*, contributor:contributors(display_name, email)`)
-    .eq('status', status)
-    .order('created_at', { ascending: false })
+  const rows = await db
+    .select({
+      id: schema.recordings.id,
+      word_id: schema.recordings.word_id,
+      word_bodo: schema.recordings.word_bodo,
+      word_roman: schema.recordings.word_roman,
+      contributor_id: schema.recordings.contributor_id,
+      storage_path: schema.recordings.storage_path,
+      duration_ms: schema.recordings.duration_ms,
+      status: schema.recordings.status,
+      reviewed_by: schema.recordings.reviewed_by,
+      reviewed_at: schema.recordings.reviewed_at,
+      review_note: schema.recordings.review_note,
+      created_at: schema.recordings.created_at,
+      contributor: {
+        display_name: schema.contributors.display_name,
+        email: schema.contributors.email,
+      },
+    })
+    .from(schema.recordings)
+    .leftJoin(schema.contributors, eq(schema.recordings.contributor_id, schema.contributors.id))
+    .where(eq(schema.recordings.status, status as RecordingStatus))
+    .orderBy(desc(schema.recordings.created_at))
     .limit(50);
 
-  const recordings = (data ?? []) as RecordingWithAudio[];
-
-  const tabs = ['pending', 'approved', 'rejected'];
+  const recordings: RecordingWithAudio[] = rows.map((r) => ({
+    ...r,
+    audio_url: `${SUPABASE_URL}/storage/v1/object/public/audio/${r.storage_path}`,
+    contributor: r.contributor ?? { display_name: 'Unknown', email: '' },
+  }));
 
   return (
     <>
@@ -40,17 +63,11 @@ export default async function RecordingsPage({ searchParams }: Props) {
         </div>
       </div>
 
-      {error && (
-        <div className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error.message}</div>
-      )}
-
       {recordings.length === 0 ? (
         <p className="text-gray-500">No {status} recordings.</p>
       ) : (
         <div className="grid gap-4">
-          {recordings.map((r) => (
-            <RecordingCard key={r.id} recording={r} />
-          ))}
+          {recordings.map((r) => <RecordingCard key={r.id} recording={r} />)}
         </div>
       )}
     </>

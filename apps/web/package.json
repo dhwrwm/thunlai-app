@@ -3,17 +3,18 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "next dev --port 3000",
+    "dev": "NODE_OPTIONS=--no-experimental-webstorage next dev --port 3000",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@supabase/ssr": "^0.6.1",
-    "@supabase/supabase-js": "^2.50.0",
+    "@thunlai/db": "workspace:*",
+    "@thunlai/translit": "workspace:^",
     "@thunlai/types": "workspace:*",
     "next": "^15.3.3",
+    "onnxruntime-web": "^1.26.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },

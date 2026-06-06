@@ -1,22 +1,28 @@
 import { Suspense } from 'react';
+import { db, schema } from '@thunlai/db';
+import { eq, sql } from 'drizzle-orm';
 import SearchBar from '@/components/SearchBar';
-import { createClient } from '@/lib/supabase';
-import type { Word } from '@thunlai/types';
+import WordCard from '@/components/WordCard';
 
 const ALPHABET = 'अ आ इ ई उ ऊ ए ओ क ख ग घ ङ च छ ज झ ञ ट ठ ड ढ ण त थ द ध न प फ ब भ म य र ल व स ह'.split(' ');
 
 async function WordOfDay() {
-  const supabase = createClient();
-  const dayOffset = Math.floor(Date.now() / 86400000) % 10000;
-  const { data } = await supabase
-    .from('words')
-    .select('*')
-    .eq('source', 'dictionary')
-    .range(dayOffset, dayOffset)
-    .single();
+  const [{ count }] = await db
+    .select({ count: sql<number>`cast(count(*) as int)` })
+    .from(schema.words)
+    .where(eq(schema.words.source, 'dictionary'));
 
-  if (!data) return null;
-  const word = data as Word;
+  if (!count) return null;
+
+  const dayOffset = Math.floor(Date.now() / 86400000) % count;
+  const [word] = await db
+    .select()
+    .from(schema.words)
+    .where(eq(schema.words.source, 'dictionary'))
+    .offset(dayOffset)
+    .limit(1);
+
+  if (!word) return null;
 
   return (
     <section className="mb-10 rounded-2xl bg-primary-light p-6 ring-1 ring-primary/20">

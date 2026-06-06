@@ -1,21 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase';
+import { db, schema } from '@thunlai/db';
+import { or, ilike, asc } from 'drizzle-orm';
 import type { Word } from '@thunlai/types';
 
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get('q')?.trim();
   if (!q) return NextResponse.json([]);
 
-  const supabase = createClient();
+  const like = `%${q}%`;
 
-  const { data, error } = await supabase
-    .from('words')
-    .select('id,bodo,roman,english,source,slug')
-    .or(`bodo.ilike.%${q}%,roman.ilike.%${q}%,english.ilike.%${q}%`)
-    .order('source')
-    .limit(30);
+  try {
+    const results = await db
+      .select()
+      .from(schema.words)
+      .where(
+        or(
+          ilike(schema.words.bodo, like),
+          ilike(schema.words.roman, like),
+          ilike(schema.words.english, like)
+        )
+      )
+      .orderBy(asc(schema.words.source))
+      .limit(30);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  return NextResponse.json(data as Word[]);
+    return NextResponse.json(results as Word[]);
+  } catch (err) {
+    return NextResponse.json({ error: String(err) }, { status: 500 });
+  }
 }

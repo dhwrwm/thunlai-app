@@ -2,34 +2,32 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
 import AudioPlayer from '@/components/AudioPlayer';
 import type { RecordingWithAudio } from '@thunlai/types';
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 
 export default function ReviewPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const supabase = useMemo(() => createClient(), []);
 
   const [recording, setRecording] = useState<RecordingWithAudio | null>(null);
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    supabase
-      .from('recordings')
-      .select(`*, contributor:contributors(display_name, email)`)
-      .eq('id', id)
-      .single()
-      .then(({ data }) => setRecording(data as RecordingWithAudio));
-  }, [id, supabase]);
+    fetch(`/api/recordings/${id}`)
+      .then((r) => r.json())
+      .then(setRecording);
+  }, [id]);
 
   const handleAction = async (status: 'approved' | 'rejected') => {
     setLoading(true);
-    await supabase
-      .from('recordings')
-      .update({ status, review_note: note || null, reviewed_at: new Date().toISOString() })
-      .eq('id', id);
+    await fetch(`/api/recordings/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, review_note: note || null }),
+    });
     router.push('/recordings');
   };
 

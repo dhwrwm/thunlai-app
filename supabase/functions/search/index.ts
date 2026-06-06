@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { neon } from 'https://esm.sh/@neondatabase/serverless@0.10.4';
 import { corsHeaders } from '../_shared/cors.ts';
 
 serve(async (req) => {
@@ -9,7 +9,7 @@ serve(async (req) => {
 
   const url = new URL(req.url);
   const q = url.searchParams.get('q')?.trim();
-  const source = url.searchParams.get('source'); // 'dictionary' | 'glossary' | null
+  const source = url.searchParams.get('source');
   const limit = Math.min(Number(url.searchParams.get('limit') ?? '30'), 100);
   const offset = Number(url.searchParams.get('offset') ?? '0');
 
@@ -19,51 +19,32 @@ serve(async (req) => {
     });
   }
 
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  );
+  const sql = neon(Deno.env.get('DATABASE_URL')!);
+  const like = `%${q}%`;
 
-  // Use FTS for multi-word queries, ILIKE for short prefix searches
-  let query = supabase
-    .from('words')
-    .select('id, bodo, roman, english, source, slug');
+  try {
+    const rows = source
+      ? await sql`
+          SELECT id, bodo, roman, english, source, slug
+          FROM words
+          WHERE (bodo ILIKE ${like} OR roman ILIKE ${like} OR english ILIKE ${like})
+            AND source = ${source}
+          ORDER BY source
+          LIMIT ${limit} OFFSET ${offset}`
+      : await sql`
+          SELECT id, bodo, roman, english, source, slug
+          FROM words
+          WHERE bodo ILIKE ${like} OR roman ILIKE ${like} OR english ILIKE ${like}
+          ORDER BY source
+          LIMIT ${limit} OFFSET ${offset}`;
 
-  if (source) query = query.eq('source', source);
-
-  // FTS: wrap each token with prefix matching
-  const ftsQuery = q
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((t) => `'${t.replace(/'/g, "''")}'`)
-    .join(' | ');
-
-  const { data: ftsData, error: ftsErr } = await query
-    .textSearch('fts', ftsQuery, { type: 'websearch', config: 'simple' })
-    .range(offset, offset + limit - 1);
-
-  if (!ftsErr && ftsData && ftsData.length > 0) {
-    return new Response(JSON.stringify(ftsData), {
+    return new Response(JSON.stringify(rows), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-  }
-
-  // Fallback: ILIKE across all three columns
-  const like = `%${q}%`;
-  const { data, error } = await supabase
-    .from('words')
-    .select('id, bodo, roman, english, source, slug')
-    .or(`bodo.ilike.${like},roman.ilike.${like},english.ilike.${like}`)
-    .range(offset, offset + limit - 1);
-
-  if (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+  } catch (err) {
+    return new Response(JSON.stringify({ error: String(err) }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-
-  return new Response(JSON.stringify(data ?? []), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
 });

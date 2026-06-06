@@ -1,6 +1,8 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { neon } from 'https://esm.sh/@neondatabase/serverless@0.10.4';
 import { corsHeaders } from '../_shared/cors.ts';
+
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -17,24 +19,14 @@ serve(async (req) => {
     });
   }
 
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  );
+  const sql = neon(Deno.env.get('DATABASE_URL')!);
 
-  const [{ data: word }, { data: audio }] = await Promise.all([
-    supabase
-      .from('words')
-      .select('id, bodo, roman, english, source, slug')
-      .eq('id', Number(id))
-      .single(),
-    supabase
-      .from('words_audio')
-      .select('audio_url, duration_ms')
-      .eq('word_id', Number(id))
-      .single(),
+  const [words, recordings] = await Promise.all([
+    sql`SELECT id, bodo, roman, english, source, slug FROM words WHERE id = ${Number(id)}`,
+    sql`SELECT storage_path, duration_ms FROM recordings WHERE word_id = ${Number(id)} AND status = 'approved' LIMIT 1`,
   ]);
 
+  const word = words[0];
   if (!word) {
     return new Response(JSON.stringify({ error: 'not found' }), {
       status: 404,
@@ -42,7 +34,15 @@ serve(async (req) => {
     });
   }
 
-  return new Response(JSON.stringify({ ...word, audio: audio ?? null }), {
+  const rec = recordings[0];
+  const audio = rec
+    ? {
+        audio_url: `${SUPABASE_URL}/storage/v1/object/public/audio/${rec.storage_path}`,
+        duration_ms: rec.duration_ms,
+      }
+    : null;
+
+  return new Response(JSON.stringify({ ...word, audio }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 });
